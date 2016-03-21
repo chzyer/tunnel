@@ -46,14 +46,15 @@ func (t *Instance) setupTun() error {
 		t.Name, t.MTU,
 	)
 	devAddr := fmt.Sprintf("ip addr add dev %v local %v peer %v",
-		t.Name, t.Config.Gateway.IP, t.Config.Gateway.IP,
+		t.Name, t.Config.Gateway, t.Config.Gateway,
 	)
-	_, net, err := net.ParseCIDR((t.Gateway).String())
+	ipnet := &net.IPNet{t.Gateway, t.Mask}
+	_, net, err := net.ParseCIDR((ipnet).String())
 	if err != nil {
 		return logex.Trace(err)
 	}
 	route := fmt.Sprintf("ip route add %v via %v dev %v",
-		net, t.Config.Gateway.IP, t.Name,
+		net, t.Config.Gateway, t.Name,
 	)
 	if err := t.shell(dev); err != nil {
 		return logex.Trace(err)

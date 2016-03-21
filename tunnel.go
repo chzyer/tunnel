@@ -16,7 +16,8 @@ import (
 
 type Config struct {
 	DevId       int
-	Gateway     *net.IPNet
+	Gateway     net.IP
+	Mask        net.IPMask
 	MTU         int
 	Debug       bool
 	NameLayout  string
@@ -46,14 +47,14 @@ func New(cfg *Config) (*Instance, error) {
 		cfg.NameLayout = "utun%d"
 	}
 	t := &Instance{
-		Config:        cfg,
-		fd:            fd,
-		Name:          fmt.Sprintf(cfg.NameLayout, cfg.DevId),
-		stopChan:      make(chan struct{}),
-		readChan:      make(chan []byte),
-		readReplyChan: make(chan reply),
+		Config:   cfg,
+		fd:       fd,
+		Name:     fmt.Sprintf(cfg.NameLayout, cfg.DevId),
+		stopChan: make(chan struct{}),
 	}
 	if cfg.Nonblocking {
+		t.readChan = make(chan []byte)
+		t.readReplyChan = make(chan reply)
 		go t.loop()
 		if err := syscall.SetNonblock(int(fd.Fd()), true); err != nil {
 			return nil, logex.Trace(err)
@@ -91,6 +92,7 @@ main:
 	}
 }
 
+// nonthread-safe
 func (t *Instance) Read(b []byte) (int, error) {
 	if t.Config.Nonblocking {
 		t.readChan <- b
@@ -118,7 +120,7 @@ func (t *Instance) shell(s string) error {
 	if t.Debug {
 		logex.Info(s)
 	}
-	cmd := exec.Command("/bin/bash", "-c", s)
+	cmd := exec.Command("/usr/bin/env", "bash", "-c", s)
 	ret, err := cmd.CombinedOutput()
 	if t.Debug && len(ret) > 0 {
 		logex.Info(string(ret))

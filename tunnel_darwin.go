@@ -22,7 +22,7 @@ func OpenTun(idx int) (*os.File, error) {
 
 func (t *Instance) setupTun() error {
 	ifconfig := fmt.Sprintf("ifconfig %v %v %v mtu %d netmask %v up",
-		t.Name, t.Gateway.IP, t.Gateway.IP, t.MTU, net.IP(t.Gateway.Mask),
+		t.Name, t.Gateway, t.Gateway, t.MTU, net.IP(t.Mask),
 	)
 	_, ipnet, _ := net.ParseCIDR(t.Gateway.String())
 	route := fmt.Sprintf("route add -net %v -interface %v",
