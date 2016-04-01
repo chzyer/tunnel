@@ -7,35 +7,26 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strings"
-	"syscall"
-	"time"
+	"sync/atomic"
 
 	"gopkg.in/logex.v1"
 )
 
 type Config struct {
-	DevId       int
-	Gateway     net.IP
-	Mask        net.IPMask
-	MTU         int
-	Debug       bool
-	NameLayout  string
-	Nonblocking bool
+	DevId      int
+	Gateway    net.IP
+	Mask       net.IPMask
+	MTU        int
+	Debug      bool
+	NameLayout string
 }
 
 type Instance struct {
 	*Config
-	Name          string
-	fd            *os.File
-	stopChan      chan struct{}
-	readChan      chan []byte
-	readReplyChan chan reply
-}
-
-type reply struct {
-	n   int
-	err error
+	Name   string
+	fd     *os.File
+	CIDR   *net.IPNet
+	closed int32
 }
 
 func New(cfg *Config) (*Instance, error) {
@@ -46,65 +37,33 @@ func New(cfg *Config) (*Instance, error) {
 	if cfg.NameLayout == "" {
 		cfg.NameLayout = "utun%d"
 	}
+	if cfg.MTU == 0 {
+		cfg.MTU = 1500
+	}
+	_, ipnet, err := net.ParseCIDR((&net.IPNet{cfg.Gateway, cfg.Mask}).String())
+	if err != nil {
+		return nil, logex.Trace(err)
+	}
 	t := &Instance{
-		Config:   cfg,
-		fd:       fd,
-		Name:     fmt.Sprintf(cfg.NameLayout, cfg.DevId),
-		stopChan: make(chan struct{}),
+		Config: cfg,
+		fd:     fd,
+		CIDR:   ipnet,
+		Name:   fmt.Sprintf(cfg.NameLayout, cfg.DevId),
 	}
-	if cfg.Nonblocking {
-		t.readChan = make(chan []byte)
-		t.readReplyChan = make(chan reply)
-		go t.loop()
-		if err := syscall.SetNonblock(int(fd.Fd()), true); err != nil {
-			return nil, logex.Trace(err)
-		}
-	}
+
 	if err := t.setupTun(); err != nil {
 		return nil, logex.Trace(err)
 	}
 	return t, nil
 }
 
-var nonblockError = "resource temporarily unavailable"
-
-func (t *Instance) loop() {
-main:
-	for {
-		select {
-		case b := <-t.readChan:
-			for {
-				n, err := t.fd.Read(b)
-				if err != nil && strings.Contains(err.Error(), nonblockError) {
-					select {
-					case <-time.After(500 * time.Millisecond):
-					case <-t.stopChan:
-						return
-					}
-				} else {
-					t.readReplyChan <- reply{n, err}
-					continue main
-				}
-			}
-		case <-t.stopChan:
-			return
-		}
-	}
-}
-
 // nonthread-safe
 func (t *Instance) Read(b []byte) (int, error) {
-	if t.Config.Nonblocking {
-		t.readChan <- b
-		select {
-		case r := <-t.readReplyChan:
-			return r.n, r.err
-		case <-t.stopChan:
-			return 0, io.EOF
-		}
-	} else {
-		return t.fd.Read(b)
+	n, err := t.fd.Read(b)
+	if atomic.LoadInt32(&t.closed) == 1 {
+		return 0, io.EOF
 	}
+	return n, err
 }
 
 func (t *Instance) Write(b []byte) (int, error) {
@@ -112,8 +71,11 @@ func (t *Instance) Write(b []byte) (int, error) {
 }
 
 func (t *Instance) Close() error {
-	close(t.stopChan)
-	return t.fd.Close()
+	if !atomic.CompareAndSwapInt32(&t.closed, 0, 1) {
+		return nil
+	}
+	t.close()
+	return nil
 }
 
 func (t *Instance) shell(s string) error {

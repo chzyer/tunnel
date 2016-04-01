@@ -41,6 +41,16 @@ func createInterface(fd uintptr, ifName string, flags uint16) (createdIFName str
 	return
 }
 
+func (t *Instance) close() {
+	// notify read to exit
+	conn, err := net.Dial("ip4:icmp", t.CIDR.IP.String())
+	if err != nil {
+		logex.Error(err)
+	}
+	conn.Write([]byte{1})
+	t.fd.Close()
+}
+
 func (t *Instance) setupTun() error {
 	dev := fmt.Sprintf("ip link set dev %v up mtu %v qlen 100",
 		t.Name, t.MTU,
@@ -48,13 +58,8 @@ func (t *Instance) setupTun() error {
 	devAddr := fmt.Sprintf("ip addr add dev %v local %v peer %v",
 		t.Name, t.Config.Gateway, t.Config.Gateway,
 	)
-	ipnet := &net.IPNet{t.Gateway, t.Mask}
-	_, net, err := net.ParseCIDR((ipnet).String())
-	if err != nil {
-		return logex.Trace(err)
-	}
 	route := fmt.Sprintf("ip route add %v via %v dev %v",
-		net, t.Config.Gateway, t.Name,
+		t.CIDR, t.Config.Gateway, t.Name,
 	)
 	if err := t.shell(dev); err != nil {
 		return logex.Trace(err)

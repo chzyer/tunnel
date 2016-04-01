@@ -24,7 +24,7 @@ func (t *Instance) setupTun() error {
 	ifconfig := fmt.Sprintf("ifconfig %v %v %v mtu %d netmask %v up",
 		t.Name, t.Gateway, t.Gateway, t.MTU, net.IP(t.Mask),
 	)
-	_, ipnet, _ := net.ParseCIDR(t.Gateway.String())
+	ipnet := &net.IPNet{t.Gateway, t.Mask}
 	route := fmt.Sprintf("route add -net %v -interface %v",
 		ipnet, t.Name,
 	)
@@ -43,4 +43,8 @@ func (t *Instance) Route(ipNet string) error {
 		ipNet = ipnet.String()
 	}
 	return t.shell(fmt.Sprintf("route add -net %v -interface %v", ipNet, t.Name))
+}
+
+func (t *Instance) close() {
+	t.fd.Close()
 }
