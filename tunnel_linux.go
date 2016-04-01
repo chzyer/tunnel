@@ -43,11 +43,10 @@ func createInterface(fd uintptr, ifName string, flags uint16) (createdIFName str
 
 func (t *Instance) close() {
 	// notify read to exit
-	conn, err := net.Dial("ip4:icmp", t.CIDR.IP.String())
-	if err != nil {
-		logex.Error(err)
+	conn, _ := net.Dial("ip4:icmp", t.CIDR.IP.String())
+	if conn != nil {
+		conn.Write([]byte{1})
 	}
-	conn.Write([]byte{1})
 	t.fd.Close()
 }
 
