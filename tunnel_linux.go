@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"gopkg.in/logex.v1"
@@ -54,20 +55,21 @@ func (t *Instance) setupTun() error {
 	dev := fmt.Sprintf("ip link set dev %v up mtu %v qlen 100",
 		t.Name, t.MTU,
 	)
-	devAddr := fmt.Sprintf("ip addr add dev %v local %v peer %v",
-		t.Name, t.Config.Gateway, t.Config.Gateway,
-	)
-	route := fmt.Sprintf("ip route add %v via %v dev %v",
-		t.CIDR, t.Config.Gateway, t.Name,
-	)
 	if err := t.shell(dev); err != nil {
 		return logex.Trace(err)
 	}
 
+	devAddr := fmt.Sprintf("ip addr add dev %v local %v peer %v",
+		t.Name, t.Config.Gateway, t.Config.Gateway,
+	)
 	if err := t.shell(devAddr); err != nil {
 		return logex.Trace(err)
 	}
 
+	time.Sleep(100 * time.Millisecond)
+	route := fmt.Sprintf("ip route add %v via %v dev %v",
+		t.CIDR, t.Config.Gateway, t.Name,
+	)
 	if err := t.shell(route); err != nil {
 		return logex.Trace(err)
 	}
