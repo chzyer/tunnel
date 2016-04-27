@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"gopkg.in/logex.v1"
+	"github.com/chzyer/logex"
 )
 
 // #include "tunnel_darwin.c"

@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"sync/atomic"
 
-	"gopkg.in/logex.v1"
+	"github.com/chzyer/logex"
 )
 
 type Config struct {

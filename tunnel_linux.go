@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"gopkg.in/logex.v1"
+	"github.com/chzyer/logex"
 )
 
 const (
