@@ -8,8 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"sync/atomic"
-
-	"github.com/chzyer/logex"
 )
 
 type Config struct {
@@ -32,7 +30,7 @@ type Instance struct {
 func New(cfg *Config) (*Instance, error) {
 	fd, err := OpenTun(cfg.DevId)
 	if err != nil {
-		return nil, logex.Trace(err)
+		return nil, err
 	}
 	if cfg.NameLayout == "" {
 		cfg.NameLayout = "utun%d"
@@ -42,7 +40,7 @@ func New(cfg *Config) (*Instance, error) {
 	}
 	_, ipnet, err := net.ParseCIDR((&net.IPNet{cfg.Gateway, cfg.Mask}).String())
 	if err != nil {
-		return nil, logex.Trace(err)
+		return nil, err
 	}
 	t := &Instance{
 		Config: cfg,
@@ -52,7 +50,7 @@ func New(cfg *Config) (*Instance, error) {
 	}
 
 	if err := t.setupTun(); err != nil {
-		return nil, logex.Trace(err)
+		return nil, err
 	}
 	return t, nil
 }
@@ -79,14 +77,8 @@ func (t *Instance) Close() error {
 }
 
 func (t *Instance) shell(s string) error {
-	if t.Debug {
-		logex.Info(s)
-	}
 	cmd := exec.Command("/usr/bin/env", "bash", "-c", s)
 	ret, err := cmd.CombinedOutput()
-	if t.Debug && len(ret) > 0 {
-		logex.Info(string(ret))
-	}
 	if err == nil {
 		return nil
 	}

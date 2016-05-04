@@ -8,8 +8,6 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
-
-	"github.com/chzyer/logex"
 )
 
 const (
@@ -20,11 +18,11 @@ const (
 func OpenTun(idx int) (*os.File, error) {
 	file, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
-		return nil, logex.Trace(err)
+		return nil, err
 	}
 	_, err = createInterface(file.Fd(), fmt.Sprintf("utun%d", idx), cIFF_TUN|cIFF_NO_PI)
 	if err != nil {
-		return nil, logex.Trace(err)
+		return nil, err
 	}
 	return file, nil
 }
@@ -56,14 +54,14 @@ func (t *Instance) setupTun() error {
 		t.Name, t.MTU,
 	)
 	if err := t.shell(dev); err != nil {
-		return logex.Trace(err)
+		return err
 	}
 
 	devAddr := fmt.Sprintf("ip addr add dev %v local %v peer %v",
 		t.Name, t.Config.Gateway, t.Config.Gateway,
 	)
 	if err := t.shell(devAddr); err != nil {
-		return logex.Trace(err)
+		return err
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -71,7 +69,7 @@ func (t *Instance) setupTun() error {
 		t.CIDR, t.Config.Gateway, t.Name,
 	)
 	if err := t.shell(route); err != nil {
-		return logex.Trace(err)
+		return err
 	}
 
 	return nil

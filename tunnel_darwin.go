@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-
-	"github.com/chzyer/logex"
 )
 
 // #include "tunnel_darwin.c"
@@ -29,10 +27,10 @@ func (t *Instance) setupTun() error {
 		ipnet, t.Name,
 	)
 	if err := t.shell(ifconfig); err != nil {
-		return logex.Trace(err)
+		return err
 	}
 	if err := t.shell(route); err != nil {
-		return logex.Trace(err)
+		return err
 	}
 	return nil
 }
